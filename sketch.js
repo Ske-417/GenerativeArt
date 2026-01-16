@@ -80,26 +80,33 @@ function resetAll(clearBg) {
   count = 0;
 
   if (clearBg) {
-    background(getBGColor(255));
+    const bg = getBGColor(255);
+    background(bg);
   }
 }
 
-
 function draw() {
-  syncPageBackground();
   if (paused) return;
 
-  // 背景は常に完全一致
-  background(getBGColor(255));
-
+  // UIから値を読む
+  const fadeAlpha = toInt(ui.fadeA.value);
   const baseAlpha = toInt(ui.baseA.value);
   const linesPerFrame = toInt(ui.speed.value);
 
-  // 線を追加
+  // 背景を薄く重ねてフェード
+  noStroke();
+  fill(getBGColor(fadeAlpha));
+  rect(0, 0, width, height);
+
+  // 線追加
   for (let i = 0; i < linesPerFrame; i++) {
     const a = sampleAngle();
     const b = sampleAngle();
+
+    // Δθ を 0〜π に正規化
     const d = angleDiff(a, b);
+
+    // 弦長の正規化指標：lenNorm = sin(Δθ/2) ∈ [0,1]
     const lenNorm = sin(d * 0.5);
 
     segments[head] = { a, b, lenNorm };
@@ -114,19 +121,22 @@ function draw() {
 
   const start = (head - count + maxLines) % maxLines;
   for (let i = 0; i < count; i++) {
-    const seg = segments[(start + i) % maxLines];
+    const idx = (start + i) % maxLines;
+    const seg = segments[idx];
     if (!seg) continue;
 
-    const w = 1.0 - seg.lenNorm;
+    // 長い弦ほど薄く、短い弦ほど濃く
+    const w = 1.0 - seg.lenNorm; // 1:短い, 0:長い
     const aAlpha = baseAlpha * (0.25 + 0.95 * pow(w, 1.7));
+
     stroke(getLineColor(aAlpha));
 
-    line(
-      cos(seg.a) * R,
-      sin(seg.a) * R,
-      cos(seg.b) * R,
-      sin(seg.b) * R
-    );
+    const x1 = cos(seg.a) * R;
+    const y1 = sin(seg.a) * R;
+    const x2 = cos(seg.b) * R;
+    const y2 = sin(seg.b) * R;
+
+    line(x1, y1, x2, y2);
   }
   pop();
 }
