@@ -1,65 +1,113 @@
-// 完全ランダム（位相も角度も）＋ 円周上の糸掛け
-// 弦の長さで透明度を変える：長い弦ほど薄く、短い弦ほど濃く
-// 放置しても白埋まりしない：残像フェード＋線数上限で循環
-// キー：r 再生成 / s 保存 / スペース 一時停止
-//      [ ] 速度 / - + 残像 / 1 2 3 分布
+// 円周上の点同士を直線で結ぶ糸掛け
+// 角度は完全ランダムだが、分布を歪めて縁を作る
+// 弦の長さで透明度を変え、白埋まりしにくくする
+// UIスライダーで色や消え方をリアルタイム調整
 
 let paused = false;
 
 let R;
-let linesPerFrame = 140;
 let maxLines = 3600;
-
-let fadeAlpha = 26;     // 全体の薄消し（大きいほど早く消える）
-let baseAlpha = 28;     // 線の基準透明度（ここから長さで上下）
-let strokeW = 0.9;
-
-// 角度分布
-let mode = 2;
-
-// 線のリングバッファ
-// a,b に加えて lenNorm（0〜1）を保持
 let segments = [];
 let head = 0;
 let count = 0;
+
+// UI要素
+let ui = {};
 
 function setup() {
   createCanvas(900, 900);
   pixelDensity(2);
   strokeCap(ROUND);
   strokeJoin(ROUND);
+
+  // HSLで扱う（スライダーと相性がいい）
+  colorMode(HSL, 360, 100, 100, 255);
+
   R = min(width, height) * 0.38;
 
+  bindUI();
   resetAll(true);
 }
 
-function resetAll(clearBg) {
-  if (clearBg) background(43, 44, 48);
+function bindUI() {
+  const $ = (id) => document.getElementById(id);
 
+  ui.bgH = $('bgH'); ui.bgS = $('bgS'); ui.bgL = $('bgL');
+  ui.lnH = $('lnH'); ui.lnS = $('lnS'); ui.lnL = $('lnL');
+
+  ui.baseA = $('baseA');
+  ui.fadeA = $('fadeA');
+  ui.speed = $('speed');
+  ui.bias = $('bias');
+
+  ui.bgHVal = $('bgHVal'); ui.bgSVal = $('bgSVal'); ui.bgLVal = $('bgLVal');
+  ui.lnHVal = $('lnHVal'); ui.lnSVal = $('lnSVal'); ui.lnLVal = $('lnLVal');
+  ui.baseAVal = $('baseAVal'); ui.fadeAVal = $('fadeAVal');
+  ui.speedVal = $('speedVal'); ui.biasVal = $('biasVal');
+
+  $('resetBtn').addEventListener('click', () => resetAll(true));
+  $('pauseBtn').addEventListener('click', () => {
+    paused = !paused;
+    $('pauseBtn').textContent = paused ? '再開' : '停止';
+  });
+
+  // 値表示を毎回更新
+  const updateLabels = () => {
+    ui.bgHVal.textContent = ui.bgH.value;
+    ui.bgSVal.textContent = ui.bgS.value;
+    ui.bgLVal.textContent = ui.bgL.value;
+
+    ui.lnHVal.textContent = ui.lnH.value;
+    ui.lnSVal.textContent = ui.lnS.value;
+    ui.lnLVal.textContent = ui.lnL.value;
+
+    ui.baseAVal.textContent = ui.baseA.value;
+    ui.fadeAVal.textContent = ui.fadeA.value;
+    ui.speedVal.textContent = ui.speed.value;
+    ui.biasVal.textContent = ui.bias.value;
+  };
+
+  // 全スライダー変更でラベル更新
+  ['bgH','bgS','bgL','lnH','lnS','lnL','baseA','fadeA','speed','bias'].forEach((id) => {
+    $(id).addEventListener('input', updateLabels);
+  });
+  updateLabels();
+}
+
+function resetAll(clearBg) {
   segments = new Array(maxLines);
   head = 0;
   count = 0;
+
+  if (clearBg) {
+    const bg = getBGColor(255);
+    background(bg);
+  }
 }
 
 function draw() {
   if (paused) return;
 
-  // 残像フェード
+  // UIから値を読む
+  const fadeAlpha = toInt(ui.fadeA.value);
+  const baseAlpha = toInt(ui.baseA.value);
+  const linesPerFrame = toInt(ui.speed.value);
+
+  // 背景を薄く重ねてフェード
   noStroke();
-  fill(43, 44, 48, fadeAlpha);
+  fill(getBGColor(fadeAlpha));
   rect(0, 0, width, height);
 
   // 線追加
   for (let i = 0; i < linesPerFrame; i++) {
-    const a = sampleAngle(mode);
-    const b = sampleAngle(mode);
+    const a = sampleAngle();
+    const b = sampleAngle();
 
-    // 円周上の2点から、弦の長さ（正規化）を計算
-    // 円周点：P=(Rcos a, Rsin a), Q=(Rcos b, Rsin b)
-    // 弦長 L = |P-Q| = 2R * sin(|Δθ|/2)
-    // よって lenNorm = sin(|Δθ|/2) は 0〜1 に収まる
-    let d = angleDiff(a, b);          // 0〜π
-    let lenNorm = sin(d * 0.5);       // 0〜1
+    // Δθ を 0〜π に正規化
+    const d = angleDiff(a, b);
+
+    // 弦長の正規化指標：lenNorm = sin(Δθ/2) ∈ [0,1]
+    const lenNorm = sin(d * 0.5);
 
     segments[head] = { a, b, lenNorm };
     head = (head + 1) % maxLines;
@@ -69,7 +117,7 @@ function draw() {
   // 描画
   push();
   translate(width / 2, height / 2);
-  strokeWeight(strokeW);
+  strokeWeight(0.9);
 
   const start = (head - count + maxLines) % maxLines;
   for (let i = 0; i < count; i++) {
@@ -78,11 +126,10 @@ function draw() {
     if (!seg) continue;
 
     // 長い弦ほど薄く、短い弦ほど濃く
-    // lenNorm=0（短い）→ 濃い
-    // lenNorm=1（直径）→ 薄い
-    const w = 1.0 - seg.lenNorm;           // 1→短い, 0→長い
+    const w = 1.0 - seg.lenNorm; // 1:短い, 0:長い
     const aAlpha = baseAlpha * (0.25 + 0.95 * pow(w, 1.7));
-    stroke(235, 235, 235, aAlpha);
+
+    stroke(getLineColor(aAlpha));
 
     const x1 = cos(seg.a) * R;
     const y1 = sin(seg.a) * R;
@@ -94,39 +141,58 @@ function draw() {
   pop();
 }
 
-// 角度サンプル
-function sampleAngle(m) {
-  if (m === 1) {
+// 完全ランダム角度だが、縁を作るために分布を少し歪める
+function sampleAngle() {
+  // bias: 0〜100
+  // 0 だと完全一様、100 だと端寄りが強い
+  const bias = toInt(ui.bias.value);
+
+  if (bias <= 0) {
     return random(TWO_PI);
   }
 
-  let k = (m === 2) ? 0.72 : 0.55; // 小さいほど端が強い
-  let u = random(1);
-  let v = pow(u, k);
-  let sign = random(1) < 0.5 ? -1 : 1;
-  let w = 0.5 + sign * 0.5 * v;
+  // 端寄り強度を k に変換（小さいほど端が強い）
+  // bias 0 → k=1.0（ほぼ一様）
+  // bias 100 → k=0.45（かなり端寄り）
+  const k = lerp(1.0, 0.45, bias / 100);
+
+  // u ~ U(0,1)
+  // v = u^k（k<1で端寄り）
+  // 左右対称化：w = 0.5 ± 0.5 v
+  const u = random(1);
+  const v = pow(u, k);
+  const sign = random(1) < 0.5 ? -1 : 1;
+  const w = 0.5 + sign * 0.5 * v;
+
   return w * TWO_PI;
 }
 
-// 角度差を 0〜π に正規化
 function angleDiff(a, b) {
   let d = abs(a - b) % TWO_PI;
   if (d > PI) d = TWO_PI - d;
   return d;
 }
 
+function getBGColor(alpha) {
+  const h = toInt(ui.bgH.value);
+  const s = toInt(ui.bgS.value);
+  const l = toInt(ui.bgL.value);
+  return color(h, s, l, alpha);
+}
+
+function getLineColor(alpha) {
+  const h = toInt(ui.lnH.value);
+  const s = toInt(ui.lnS.value);
+  const l = toInt(ui.lnL.value);
+  return color(h, s, l, alpha);
+}
+
+function toInt(v) {
+  return v | 0;
+}
+
 function keyPressed() {
   if (key === ' ') paused = !paused;
   if (key === 'r' || key === 'R') resetAll(true);
-  if (key === 's' || key === 'S') saveCanvas('string_circle_lenfade', 'png');
-
-  if (key === '[') linesPerFrame = max(10, linesPerFrame - 10);
-  if (key === ']') linesPerFrame = min(1500, linesPerFrame + 10);
-
-  if (key === '-') fadeAlpha = min(80, fadeAlpha + 2);
-  if (key === '+' || key === '=') fadeAlpha = max(2, fadeAlpha - 2);
-
-  if (key === '1') mode = 1;
-  if (key === '2') mode = 2;
-  if (key === '3') mode = 3;
+  if (key === 's' || key === 'S') saveCanvas('string_circle_ui', 'png');
 }
