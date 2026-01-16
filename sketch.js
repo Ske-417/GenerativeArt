@@ -27,8 +27,6 @@ function setup() {
 
   bindUI();
   resetAll(true);
-
-  syncPageBackground();
 }
 
 function bindUI() {
@@ -88,8 +86,6 @@ function resetAll(clearBg) {
 }
 
 function draw() {
-  syncPageBackground();
-  
   if (paused) return;
 
   // UIから値を読む
@@ -182,16 +178,6 @@ function getBGColor(alpha) {
   const s = toInt(ui.bgS.value);
   const l = toInt(ui.bgL.value);
   return color(h, s, l, alpha);
-}
-
-function syncPageBackground() {
-  const h = ui.bgH.value;
-  const s = ui.bgS.value;
-  const l = ui.bgL.value;
-  const css = `hsl(${h}, ${s}%, ${l}%)`;
-
-  document.documentElement.style.backgroundColor = css; // html
-  document.body.style.backgroundColor = css;            // body
 }
 
 function getLineColor(alpha) {
