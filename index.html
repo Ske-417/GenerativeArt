@@ -5,8 +5,15 @@
     <meta name='viewport' content='width=device-width, initial-scale=1' />
     <title>Realtime String Circle</title>
     <style>
-      html, body { margin: 0; padding: 0; background: #222; }
-      canvas { display: block; margin: 0 auto; }
+  html, body {
+    margin: 0;
+    padding: 0;
+    background: transparent; /* ←ここ重要 */
+  }
+  canvas {
+    display: block;
+    margin: 0 auto;
+  }
 
       #ui {
         position: fixed;
