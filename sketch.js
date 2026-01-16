@@ -1,24 +1,24 @@
-// 完全ランダム（位相も角度も）だけど、円周上に点を置くルールで縁を作る
-// 放置しても白埋まりしないように、線は寿命つきで循環
-// キー：r 再生成 / s 保存 / スペース 一時停止 / [ ] 速度 / - + 残像 / 1 2 3 分布
+// 完全ランダム（位相も角度も）＋ 円周上の糸掛け
+// 弦の長さで透明度を変える：長い弦ほど薄く、短い弦ほど濃く
+// 放置しても白埋まりしない：残像フェード＋線数上限で循環
+// キー：r 再生成 / s 保存 / スペース 一時停止
+//      [ ] 速度 / - + 残像 / 1 2 3 分布
 
 let paused = false;
 
-// 描画パラメータ
 let R;
 let linesPerFrame = 140;
-let maxLines = 3200;
-let fadeAlpha = 26;
-let baseAlpha = 22;
+let maxLines = 3600;
+
+let fadeAlpha = 26;     // 全体の薄消し（大きいほど早く消える）
+let baseAlpha = 28;     // 線の基準透明度（ここから長さで上下）
 let strokeW = 0.9;
 
-// 円周角度の分布モード
-// 1: 一様（完全ランダム）
-// 2: 縁が締まる（端寄り）
-// 3: 強めに端寄り（より縁っぽい）
+// 角度分布
 let mode = 2;
 
 // 線のリングバッファ
+// a,b に加えて lenNorm（0〜1）を保持
 let segments = [];
 let head = 0;
 let count = 0;
@@ -44,25 +44,31 @@ function resetAll(clearBg) {
 function draw() {
   if (paused) return;
 
-  // 残像フェード（古い線が消えていく）
+  // 残像フェード
   noStroke();
   fill(43, 44, 48, fadeAlpha);
   rect(0, 0, width, height);
 
-  // 線を追加（古いのを上書きしていく）
+  // 線追加
   for (let i = 0; i < linesPerFrame; i++) {
     const a = sampleAngle(mode);
     const b = sampleAngle(mode);
 
-    segments[head] = { a, b };
+    // 円周上の2点から、弦の長さ（正規化）を計算
+    // 円周点：P=(Rcos a, Rsin a), Q=(Rcos b, Rsin b)
+    // 弦長 L = |P-Q| = 2R * sin(|Δθ|/2)
+    // よって lenNorm = sin(|Δθ|/2) は 0〜1 に収まる
+    let d = angleDiff(a, b);          // 0〜π
+    let lenNorm = sin(d * 0.5);       // 0〜1
+
+    segments[head] = { a, b, lenNorm };
     head = (head + 1) % maxLines;
     count = min(maxLines, count + 1);
   }
 
-  // 今生きてる線を全部描き直す
+  // 描画
   push();
   translate(width / 2, height / 2);
-  stroke(235, 235, 235, baseAlpha);
   strokeWeight(strokeW);
 
   const start = (head - count + maxLines) % maxLines;
@@ -70,6 +76,13 @@ function draw() {
     const idx = (start + i) % maxLines;
     const seg = segments[idx];
     if (!seg) continue;
+
+    // 長い弦ほど薄く、短い弦ほど濃く
+    // lenNorm=0（短い）→ 濃い
+    // lenNorm=1（直径）→ 薄い
+    const w = 1.0 - seg.lenNorm;           // 1→短い, 0→長い
+    const aAlpha = baseAlpha * (0.25 + 0.95 * pow(w, 1.7));
+    stroke(235, 235, 235, aAlpha);
 
     const x1 = cos(seg.a) * R;
     const y1 = sin(seg.a) * R;
@@ -81,32 +94,31 @@ function draw() {
   pop();
 }
 
-// 角度をサンプリングする
+// 角度サンプル
 function sampleAngle(m) {
   if (m === 1) {
-    // 完全一様：θ ~ Uniform(0, 2π)
     return random(TWO_PI);
   }
 
-  // 端寄り分布を作る
-  // u ~ Uniform(0,1)
-  // v = u^k (k<1で0側に寄る)
-  // それを左右対称にして [0,1] 全体で端寄りにする
-  // w = 0.5 + sign*(0.5*v), sign∈{-1,+1}
-  // θ = 2πw
   let k = (m === 2) ? 0.72 : 0.55; // 小さいほど端が強い
   let u = random(1);
   let v = pow(u, k);
   let sign = random(1) < 0.5 ? -1 : 1;
   let w = 0.5 + sign * 0.5 * v;
-
   return w * TWO_PI;
+}
+
+// 角度差を 0〜π に正規化
+function angleDiff(a, b) {
+  let d = abs(a - b) % TWO_PI;
+  if (d > PI) d = TWO_PI - d;
+  return d;
 }
 
 function keyPressed() {
   if (key === ' ') paused = !paused;
   if (key === 'r' || key === 'R') resetAll(true);
-  if (key === 's' || key === 'S') saveCanvas('string_circle_random', 'png');
+  if (key === 's' || key === 'S') saveCanvas('string_circle_lenfade', 'png');
 
   if (key === '[') linesPerFrame = max(10, linesPerFrame - 10);
   if (key === ']') linesPerFrame = min(1500, linesPerFrame + 10);
