@@ -28,7 +28,7 @@ function setup() {
   bindUI();
   resetAll(true);
 
-  syncBodyBackground();
+  syncPageBackground();
 }
 
 function bindUI() {
@@ -88,7 +88,7 @@ function resetAll(clearBg) {
 }
 
 function draw() {
-  syncBodyBackground();
+  syncPageBackground();
   
   if (paused) return;
 
