@@ -3,14 +3,87 @@
   <head>
     <meta charset='utf-8' />
     <meta name='viewport' content='width=device-width, initial-scale=1' />
-    <title>Growing Circle String</title>
+    <title>Realtime String Circle</title>
     <style>
-      html, body { margin: 0; padding: 0; background: #2b2c30; }
+      html, body { margin: 0; padding: 0; background: #222; }
       canvas { display: block; margin: 0 auto; }
+
+      #ui {
+        position: fixed;
+        top: 12px;
+        left: 12px;
+        width: 260px;
+        padding: 12px 12px 10px;
+        background: rgba(0,0,0,0.55);
+        color: #eee;
+        font-family: system-ui, -apple-system, Segoe UI, sans-serif;
+        border-radius: 12px;
+        backdrop-filter: blur(6px);
+        user-select: none;
+      }
+
+      #ui h3 {
+        margin: 0 0 10px;
+        font-size: 14px;
+        font-weight: 700;
+        letter-spacing: 0.02em;
+      }
+
+      .row { margin: 8px 0; }
+      .label {
+        display: flex;
+        justify-content: space-between;
+        font-size: 12px;
+        opacity: 0.9;
+        margin-bottom: 4px;
+      }
+      input[type='range'] { width: 100%; }
+
+      .btns { display: flex; gap: 8px; margin-top: 10px; }
+      button {
+        flex: 1;
+        padding: 8px 10px;
+        border: 0;
+        border-radius: 10px;
+        background: rgba(255,255,255,0.12);
+        color: #eee;
+        cursor: pointer;
+      }
+      button:hover { background: rgba(255,255,255,0.18); }
+      .hint { margin-top: 10px; font-size: 11px; opacity: 0.8; line-height: 1.4; }
     </style>
+
     <script src='https://cdn.jsdelivr.net/npm/p5@1.9.4/lib/p5.min.js'></script>
   </head>
+
   <body>
+    <div id='ui'>
+      <h3>カラー調整</h3>
+
+      <div class='row'><div class='label'><span>背景 Hue</span><span id='bgHVal'></span></div><input id='bgH' type='range' min='0' max='360' value='220' /></div>
+      <div class='row'><div class='label'><span>背景 Sat</span><span id='bgSVal'></span></div><input id='bgS' type='range' min='0' max='100' value='10' /></div>
+      <div class='row'><div class='label'><span>背景 Light</span><span id='bgLVal'></span></div><input id='bgL' type='range' min='0' max='100' value='18' /></div>
+
+      <div class='row'><div class='label'><span>線 Hue</span><span id='lnHVal'></span></div><input id='lnH' type='range' min='0' max='360' value='210' /></div>
+      <div class='row'><div class='label'><span>線 Sat</span><span id='lnSVal'></span></div><input id='lnS' type='range' min='0' max='100' value='20' /></div>
+      <div class='row'><div class='label'><span>線 Light</span><span id='lnLVal'></span></div><input id='lnL' type='range' min='0' max='100' value='92' /></div>
+
+      <div class='row'><div class='label'><span>線の濃さ</span><span id='baseAVal'></span></div><input id='baseA' type='range' min='1' max='80' value='26' /></div>
+      <div class='row'><div class='label'><span>消え方</span><span id='fadeAVal'></span></div><input id='fadeA' type='range' min='1' max='90' value='26' /></div>
+      <div class='row'><div class='label'><span>速度</span><span id='speedVal'></span></div><input id='speed' type='range' min='10' max='1200' value='140' /></div>
+      <div class='row'><div class='label'><span>縁の偏り</span><span id='biasVal'></span></div><input id='bias' type='range' min='0' max='100' value='60' /></div>
+
+      <div class='btns'>
+        <button id='resetBtn'>リセット</button>
+        <button id='pauseBtn'>停止</button>
+      </div>
+
+      <div class='hint'>
+        キー：r 再生成 / s 保存<br />
+        停止はボタンかスペース
+      </div>
+    </div>
+
     <script src='sketch.js'></script>
   </body>
 </html>
