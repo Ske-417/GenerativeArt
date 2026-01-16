@@ -1,25 +1,26 @@
-// 直線の糸掛けだけで円っぽい縁を作る
-// 線は寿命つきで消えて循環するから、放置しても真っ白に埋まらない
-// キー：r 再生成 / s 保存 / スペース 一時停止 / [ ] 速度 / - + 残像
+// 完全ランダム（位相も角度も）だけど、円周上に点を置くルールで縁を作る
+// 放置しても白埋まりしないように、線は寿命つきで循環
+// キー：r 再生成 / s 保存 / スペース 一時停止 / [ ] 速度 / - + 残像 / 1 2 3 分布
 
 let paused = false;
 
 // 描画パラメータ
 let R;
-let linesPerFrame = 140;     // 1フレームで追加する線の数
-let maxLines = 3800;         // 同時に存在する線の上限（これで白埋まり防止）
-let fadeAlpha = 26;          // 全体の薄消し（大きいほど早く消える）
-let baseAlpha = 26;          // 線の基本透明度
+let linesPerFrame = 140;
+let maxLines = 3200;
+let fadeAlpha = 26;
+let baseAlpha = 22;
 let strokeW = 0.9;
 
-// カオス生成（logistic map）
-let t1, t2;
-let prevA = 0;
+// 円周角度の分布モード
+// 1: 一様（完全ランダム）
+// 2: 縁が締まる（端寄り）
+// 3: 強めに端寄り（より縁っぽい）
+let mode = 2;
 
 // 線のリングバッファ
-// {a, b} だけ保存して、毎フレーム描き直す方式
 let segments = [];
-let head = 0;     // 次に上書きする位置
+let head = 0;
 let count = 0;
 
 function setup() {
@@ -38,41 +39,32 @@ function resetAll(clearBg) {
   segments = new Array(maxLines);
   head = 0;
   count = 0;
-
-  t1 = random(0.05, 0.95);
-  t2 = random(0.05, 0.95);
-
-  prevA = angleChaosA();
 }
 
 function draw() {
   if (paused) return;
 
-  // 全体を薄く消して、古い線を自然にフェードさせる（残像）
+  // 残像フェード（古い線が消えていく）
   noStroke();
   fill(43, 44, 48, fadeAlpha);
   rect(0, 0, width, height);
 
-  // 新しい線分を追加（古いのを上書きしていく）
+  // 線を追加（古いのを上書きしていく）
   for (let i = 0; i < linesPerFrame; i++) {
-    const a = prevA;
-    const b = angleChaosB();
+    const a = sampleAngle(mode);
+    const b = sampleAngle(mode);
 
     segments[head] = { a, b };
     head = (head + 1) % maxLines;
     count = min(maxLines, count + 1);
-
-    prevA = angleChaosA();
   }
 
-  // 現在生きてる線だけを描く（毎フレーム描き直す）
+  // 今生きてる線を全部描き直す
   push();
   translate(width / 2, height / 2);
   stroke(235, 235, 235, baseAlpha);
   strokeWeight(strokeW);
 
-  // headが次の書き込み位置なので、そこから古い順に並ぶ
-  // 描画順はそこまで重要じゃないけど、自然な流れになるように古い→新しい
   const start = (head - count + maxLines) % maxLines;
   for (let i = 0; i < count; i++) {
     const idx = (start + i) % maxLines;
@@ -89,35 +81,40 @@ function draw() {
   pop();
 }
 
-// logistic map を使って角度を作る（ランダムより筋が通っててカオスが出る）
-function angleChaosA() {
-  const r = 3.86 + 0.09 * sin(frameCount * 0.003);
-  t1 = r * t1 * (1 - t1);
+// 角度をサンプリングする
+function sampleAngle(m) {
+  if (m === 1) {
+    // 完全一様：θ ~ Uniform(0, 2π)
+    return random(TWO_PI);
+  }
 
-  // 分布を少し歪めて、縁に濃淡を作る
-  const u = pow(t1, 0.72);
-  return u * TWO_PI;
-}
+  // 端寄り分布を作る
+  // u ~ Uniform(0,1)
+  // v = u^k (k<1で0側に寄る)
+  // それを左右対称にして [0,1] 全体で端寄りにする
+  // w = 0.5 + sign*(0.5*v), sign∈{-1,+1}
+  // θ = 2πw
+  let k = (m === 2) ? 0.72 : 0.55; // 小さいほど端が強い
+  let u = random(1);
+  let v = pow(u, k);
+  let sign = random(1) < 0.5 ? -1 : 1;
+  let w = 0.5 + sign * 0.5 * v;
 
-function angleChaosB() {
-  const r = 3.92 + 0.07 * cos(frameCount * 0.002);
-  t2 = r * t2 * (1 - t2);
-
-  // 位相をずらして偏りを作る
-  const u = (t2 + 0.20 * sin(frameCount * 0.004)) % 1.0;
-  return u * TWO_PI;
+  return w * TWO_PI;
 }
 
 function keyPressed() {
   if (key === ' ') paused = !paused;
   if (key === 'r' || key === 'R') resetAll(true);
-  if (key === 's' || key === 'S') saveCanvas('string_circle', 'png');
+  if (key === 's' || key === 'S') saveCanvas('string_circle_random', 'png');
 
-  // 速度
   if (key === '[') linesPerFrame = max(10, linesPerFrame - 10);
-  if (key === ']') linesPerFrame = min(1200, linesPerFrame + 10);
+  if (key === ']') linesPerFrame = min(1500, linesPerFrame + 10);
 
-  // 残像（消え方）
-  if (key === '-') fadeAlpha = min(80, fadeAlpha + 2);  // 早く消える
-  if (key === '+' || key === '=') fadeAlpha = max(2, fadeAlpha - 2); // 残る
+  if (key === '-') fadeAlpha = min(80, fadeAlpha + 2);
+  if (key === '+' || key === '=') fadeAlpha = max(2, fadeAlpha - 2);
+
+  if (key === '1') mode = 1;
+  if (key === '2') mode = 2;
+  if (key === '3') mode = 3;
 }
