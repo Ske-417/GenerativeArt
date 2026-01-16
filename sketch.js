@@ -80,10 +80,10 @@ function resetAll(clearBg) {
   count = 0;
 
   if (clearBg) {
-    const bg = getBGColor(255);
-    background(bg);
+    background(getBGColor(255));
   }
 }
+
 
 function draw() {
   if (paused) return;
@@ -95,8 +95,9 @@ function draw() {
 
   // 背景を薄く重ねてフェード
   noStroke();
-  fill(getBGColor(fadeAlpha));
+  fill(getBGColor(fadeAlpha)); // fadeAlpha は小さめ（例 4〜8）
   rect(0, 0, width, height);
+
 
   // 線追加
   for (let i = 0; i < linesPerFrame; i++) {
