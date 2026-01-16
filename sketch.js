@@ -94,10 +94,7 @@ function draw() {
   const linesPerFrame = toInt(ui.speed.value);
 
   // 背景を薄く重ねてフェード
-  noStroke();
-  fill(getBGColor(fadeAlpha)); // fadeAlpha は小さめ（例 4〜8）
-  rect(0, 0, width, height);
-
+  background(getBGColor(255));
 
   // 線追加
   for (let i = 0; i < linesPerFrame; i++) {
