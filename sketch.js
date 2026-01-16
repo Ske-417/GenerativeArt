@@ -184,11 +184,14 @@ function getBGColor(alpha) {
   return color(h, s, l, alpha);
 }
 
-function syncBodyBackground() {
+function syncPageBackground() {
   const h = ui.bgH.value;
   const s = ui.bgS.value;
   const l = ui.bgL.value;
-  document.body.style.backgroundColor = `hsl(${h}, ${s}%, ${l}%)`;
+  const css = `hsl(${h}, ${s}%, ${l}%)`;
+
+  document.documentElement.style.backgroundColor = css; // html
+  document.body.style.backgroundColor = css;            // body
 }
 
 function getLineColor(alpha) {
