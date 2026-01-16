@@ -1,100 +1,112 @@
-// クリフォードアトラクタを線で描いて、美しく整える版
-// キー操作：
-//  r で再生成（パラメータを少し変える）
-//  s で保存（png）
+// 参考画像みたいに、円周点を選んで糸を張り続ける
+// 円は時間で成長していく
+// キー：r 再生成 / c クリア / s 保存 / スペース 一時停止
 
-let params = { a: -1.4, b: 1.6, c: 1.0, d: 0.7 };
-let seed = 12345;
+let Rmax;
+let Rcur = 1;
+
+let t1 = 0.123456; // logistic map state
+let t2 = 0.654321;
+
+let prevA = 0;
+let prevB = 0;
+
+let paused = false;
+
+// 調整ツマミ
+let linesPerFrame = 120;   // 1フレームで何本足すか
+let growSpeed = 2.2;       // 半径の成長速度
+let alphaLine = 18;        // 線の透明度
+let strokeW = 0.9;         // 線の太さ
 
 function setup() {
   createCanvas(900, 900);
   pixelDensity(2);
   strokeCap(ROUND);
   strokeJoin(ROUND);
-  regenerate();
+
+  Rmax = min(width, height) * 0.38;
+
+  resetAll(true);
 }
 
-function regenerate() {
-  randomSeed(seed);
-  background(11, 12, 16);
+function resetAll(clearBg) {
+  if (clearBg) background(43, 44, 48);
 
-  // パラメータを少し揺らして同系統の変化を出す
-  params = {
-    a: -1.4 + random(-0.25, 0.25),
-    b:  1.6 + random(-0.25, 0.25),
-    c:  1.0 + random(-0.25, 0.25),
-    d:  0.7 + random(-0.25, 0.25),
-  };
+  Rcur = 1;
 
-  // 描画設定（美しくする肝）
-  noFill();
-  stroke(230, 235, 255, 18);  // 薄い線を重ねて発光っぽく
-  strokeWeight(0.8);
+  // 初期値を少しランダムにして雰囲気変える
+  t1 = random(0.05, 0.95);
+  t2 = random(0.05, 0.95);
 
-  // アトラクタ生成
-  // x_{n+1} = sin(a*y_n) + c*cos(a*x_n)
-  // y_{n+1} = sin(b*x_n) + d*cos(b*y_n)
-  let x = 0.1;
-  let y = 0.1;
+  prevA = angleFromChaosA();
+  prevB = angleFromChaosB();
+}
 
-  // ウォームアップ（軌道を安定領域に入れる）
-  for (let i = 0; i < 2000; i++) {
-    [x, y] = cliffordStep(x, y, params);
-  }
+function draw() {
+  if (paused) return;
 
-  // 描画：短い線分を大量に重ねる
-  // 連続線にすると破綻しやすいので、微細なストロークで上品にまとめる
-  const steps = 220000;
-  const scale = 210;     // 画面への拡大
-  const drift = 0.65;    // 線の追従具合（小さいほど滑らか寄り）
+  // 半径を成長させる
+  Rcur = min(Rmax, Rcur + growSpeed);
 
-  let px = x, py = y;
-  let sx = 0, sy = 0;
-
+  // 円の輪郭は毎フレーム薄く上書きして存在感キープ
+  push();
   translate(width / 2, height / 2);
+  noFill();
+  stroke(235, 235, 235, 90);
+  strokeWeight(1);
+  circle(0, 0, Rcur * 2);
+  pop();
 
-  for (let i = 0; i < steps; i++) {
-    [x, y] = cliffordStep(x, y, params);
+  // 糸を足す（積み上げ式）
+  push();
+  translate(width / 2, height / 2);
+  stroke(235, 235, 235, alphaLine);
+  strokeWeight(strokeW);
 
-    // 速度方向を少し平滑化して線を美しく
-    const vx = x - px;
-    const vy = y - py;
-    sx = lerp(sx, vx, drift);
-    sy = lerp(sy, vy, drift);
+  for (let i = 0; i < linesPerFrame; i++) {
+    const a = angleFromChaosA();
+    const b = angleFromChaosB();
 
-    const x1 = px * scale;
-    const y1 = py * scale;
-    const x2 = (px + sx) * scale;
-    const y2 = (py + sy) * scale;
+    const x1 = cos(prevA) * Rcur;
+    const y1 = sin(prevA) * Rcur;
+    const x2 = cos(b) * Rcur;
+    const y2 = sin(b) * Rcur;
 
     line(x1, y1, x2, y2);
 
-    px = x;
-    py = y;
+    prevA = a;
+    prevB = b;
   }
 
-  // 仕上げにほんの少しだけトーンを落ち着かせる
-  // これでギラつきが減って、密度の美しさが出る
-  push();
-  resetMatrix();
-  noStroke();
-  fill(11, 12, 16, 24);
-  rect(0, 0, width, height);
   pop();
 }
 
-function cliffordStep(x, y, p) {
-  const nx = sin(p.a * y) + p.c * cos(p.a * x);
-  const ny = sin(p.b * x) + p.d * cos(p.b * y);
-  return [nx, ny];
+// カオス角度生成：logistic mapを使う（ランダムより筋が通ってる）
+function angleFromChaosA() {
+  // r を時間でゆっくり揺らすと、雰囲気が呼吸する
+  const r = 3.86 + 0.08 * sin(frameCount * 0.003);
+  t1 = r * t1 * (1 - t1);
+
+  // 端っこに寄りやすいように、分布を少し歪める
+  const u = pow(t1, 0.7);
+
+  return u * TWO_PI;
+}
+
+function angleFromChaosB() {
+  const r = 3.92 + 0.06 * cos(frameCount * 0.002);
+  t2 = r * t2 * (1 - t2);
+
+  // 片側に寄る塊ができやすいように、位相を少しズラす
+  const u = (t2 + 0.18 * sin(frameCount * 0.004)) % 1.0;
+
+  return u * TWO_PI;
 }
 
 function keyPressed() {
-  if (key === 'r' || key === 'R') {
-    seed += 1;
-    regenerate();
-  }
-  if (key === 's' || key === 'S') {
-    saveCanvas('chaos_lines', 'png');
-  }
+  if (key === 'r' || key === 'R') resetAll(true);
+  if (key === 'c' || key === 'C') background(43, 44, 48);
+  if (key === 's' || key === 'S') saveCanvas('growing_circle_string', 'png');
+  if (key === ' ') paused = !paused;
 }
