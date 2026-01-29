@@ -12,7 +12,7 @@
         position: fixed;
         top: 12px;
         left: 12px;
-        width: 260px;
+        width: 280px;
         padding: 12px 12px 10px;
         background: rgba(0,0,0,0.55);
         color: #eee;
@@ -20,6 +20,8 @@
         border-radius: 12px;
         backdrop-filter: blur(6px);
         user-select: none;
+        max-height: calc(100vh - 24px);
+        overflow: auto;
       }
 
       #ui h3 {
@@ -50,7 +52,56 @@
         cursor: pointer;
       }
       button:hover { background: rgba(255,255,255,0.18); }
-      .hint { margin-top: 10px; font-size: 11px; opacity: 0.8; line-height: 1.4; }
+
+      .hint {
+        margin-top: 10px;
+        font-size: 11px;
+        opacity: 0.8;
+        line-height: 1.4;
+      }
+
+      details.math {
+        margin-top: 10px;
+        border-radius: 10px;
+        background: rgba(255,255,255,0.06);
+        padding: 8px 10px;
+      }
+      details.math > summary {
+        cursor: pointer;
+        font-size: 12px;
+        font-weight: 700;
+        opacity: 0.95;
+        list-style: none;
+      }
+      details.math > summary::-webkit-details-marker { display: none; }
+
+      .math-body {
+        margin-top: 8px;
+        font-size: 11px;
+        line-height: 1.55;
+        opacity: 0.9;
+      }
+      .math-body .sec {
+        margin: 10px 0 0;
+        padding-top: 10px;
+        border-top: 1px solid rgba(255,255,255,0.08);
+      }
+      .math-body .tag {
+        display: inline-block;
+        font-size: 10px;
+        opacity: 0.85;
+        padding: 2px 6px;
+        border-radius: 999px;
+        background: rgba(255,255,255,0.10);
+        margin-right: 6px;
+      }
+      .math-body code {
+        font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+        font-size: 10px;
+        opacity: 0.95;
+      }
+      .math-body ul { margin: 6px 0 0 18px; padding: 0; }
+      .math-body li { margin: 4px 0; }
     </style>
 
     <script src='https://cdn.jsdelivr.net/npm/p5@1.9.4/lib/p5.min.js'></script>
@@ -82,6 +133,93 @@
         キー：r 再生成 / s 保存<br />
         停止はボタンかスペース
       </div>
+
+      <details class='math'>
+        <summary>数学の解説（クリックで開く）</summary>
+        <div class='math-body'>
+          <div>
+            この作品は、円周上の2点を選んで弦を描き、角度差から弦長を計算して透明度へ反映します。
+            さらに、古い線は背景の重ね塗りで徐々に減衰します。
+          </div>
+
+          <div class='sec'>
+            <span class='tag'>円の方程式</span>
+            円は <code>x^2 + y^2 = R^2</code>。ここでは円周上の点を
+            <code>x = R cosθ</code>、<code>y = R sinθ</code>
+            というパラメータ表示で生成しています。
+            <ul>
+              <li>角度 θ を選ぶだけで、必ず半径Rの円周上に点が落ちる</li>
+              <li>中心を原点に置き、最後に画面中心へ平行移動しています</li>
+            </ul>
+          </div>
+
+          <div class='sec'>
+            <span class='tag'>一次関数（直線）</span>
+            2点を結ぶと直線が決まります。円周上の2点を結ぶ線分は弦で、直線としては一次式の世界です。
+            <ul>
+              <li>弦は、円と直線の交点を2つ持つ状況を視覚化している</li>
+              <li>描いているのは線分ですが、背景には直線の幾何がある</li>
+            </ul>
+          </div>
+
+          <div class='sec'>
+            <span class='tag'>三角関数</span>
+            <code>cos</code> と <code>sin</code> で点を作るだけでなく、角度差から弦長の指標を作っています。
+            角度差を d とすると弦長は <code>2R sin(d/2)</code>。
+            そこで <code>sin(d/2)</code> を 0〜1 に正規化された弦長指標として使い、濃淡に変換しています。
+            <ul>
+              <li>短い弦ほど濃く、長い弦ほど薄くして、円周の質感を立ち上げる</li>
+              <li>濃淡は <code>pow</code> で非線形にして見た目を整える</li>
+            </ul>
+          </div>
+
+          <div class='sec'>
+            <span class='tag'>モジュロ演算と周期性</span>
+            角度は 0 と 2π が同じ点を表すため、差分を周期で折り返す必要があります。
+            <code>abs(a-b) % TWO_PI</code> で 0〜2π に入れ、さらに <code>d &gt; π</code> なら
+            <code>2π - d</code> にして 0〜π の最短角を取っています。
+            <ul>
+              <li>円周上では近いはずの角度（例：0付近と2π付近）が遠くならないようにする</li>
+              <li>弦長は角度差の最短距離で決まるため、この正規化が本質</li>
+            </ul>
+          </div>
+
+          <div class='sec'>
+            <span class='tag'>確率分布</span>
+            <code>random()</code> は一様分布ですが、<code>u</code> を <code>u^k</code> に変形すると分布の形が変わります。
+            bias はこの k を動かして、角度の出やすさを調整しています。
+            <ul>
+              <li>ただの乱数ではなく、確率分布を設計して見た目を制御している</li>
+              <li>同じルールでも、分布が変わると作品の密度と偏りが変化する</li>
+            </ul>
+          </div>
+
+          <div class='sec'>
+            <span class='tag'>差分方程式（時間の減衰）</span>
+            毎フレーム、背景を半透明で塗り重ねることで古い線が指数的に薄れます。
+            これは離散時間の減衰系（簡単な差分方程式）として解釈できます。
+            <ul>
+              <li>止め絵ではなく、時間の積み重ねで模様が育つ</li>
+              <li>fade が大きいほど記憶が短く、小さいほど残像が長い</li>
+            </ul>
+          </div>
+
+          <div class='sec'>
+            <span class='tag'>二次不等式</span>
+            この版では円の内外判定を直接は書いていませんが、円を <code>x^2 + y^2 ≤ R^2</code> と見なす発想は背景にあります。
+            もし将来、直線を一般形で出して円との交差判定を入れると、二次不等式が前面に出ます。
+            <ul>
+              <li>直線と円の交点判定は代入で二次式になり、判別式で交差が決まる</li>
+              <li>今は弦という形で、同じ幾何を別ルートから使っている</li>
+            </ul>
+          </div>
+
+          <div class='sec'>
+            まとめ：円（パラメータ表示）＋直線（弦）＋三角関数（点生成と弦長）＋周期（mod 2π）＋確率分布（角度サンプル）＋時間減衰（差分）
+            が一体になって模様が出ています。
+          </div>
+        </div>
+      </details>
     </div>
 
     <script src='sketch.js'></script>
